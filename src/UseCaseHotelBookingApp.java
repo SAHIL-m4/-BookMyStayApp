@@ -1,62 +1,68 @@
 import java.util.*;
 
-class Reservation {
-    private String guestName;
-    private String roomType;
-    private String roomId;
-    public Reservation(String guestName, String roomType, String roomId) {
-        this.guestName = guestName;
-        this.roomType = roomType;
-        this.roomId = roomId;
-    } git add
-    public String getGuestName() { return guestName; }
-    public String getRoomType() { return roomType; }
-    public String getRoomId() { return roomId; }
+class BookingException extends Exception {
+    public BookingException(String message) {
+        super(message);
+    }
 }
-class BookingHistory {
-    private List<Reservation> confirmedBookings;
 
-    public BookingHistory() {
-        confirmedBookings = new ArrayList<>();
+class RoomInventory {
+    private Map<String, Integer> roomAvailability;
+
+    public RoomInventory() {
+        roomAvailability = new HashMap<>();
+        roomAvailability.put("Single", 2);
+        roomAvailability.put("Double", 1);
     }
-    public void addRecord(Reservation reservation) {
-        confirmedBookings.add(reservation);
+    public void validateAndDecrement(String roomType) throws BookingException {
+        if (!roomAvailability.containsKey(roomType)) {
+            throw new BookingException("Error: Room type '" + roomType + "' does not exist.");
+        }
+        int currentCount = roomAvailability.get(roomType);
+        if (currentCount <= 0) {
+            throw new BookingException("Error: No availability for " + roomType + " rooms.");
+        }
+        roomAvailability.put(roomType, currentCount - 1);
     }
-    public List<Reservation> getHistory() {
-        return Collections.unmodifiableList(confirmedBookings);
+    public int getCount(String roomType) {
+        return roomAvailability.getOrDefault(roomType, 0);
     }
 }
-class BookingReportService {
-    public void generateSummaryReport(BookingHistory history) {
-        List<Reservation> records = history.getHistory();
-        System.out.println("--- Booking Summary Report ---");
-        System.out.println("Total Bookings: " + records.size());
-        Map<String, Integer> countsByType = new HashMap<>();
-        for (Reservation res : records) {
-            countsByType.put(res.getRoomType(), countsByType.getOrDefault(res.getRoomType(), 0) + 1);
+class BookingValidator {
+    public static void validateGuestName(String name) throws BookingException {
+        if (name == null || name.trim().isEmpty()) {
+            throw new BookingException("Error: Guest name cannot be empty.");
         }
-        countsByType.forEach((type, count) ->
-                System.out.println(type + " Rooms Allocated: " + count));
-        System.out.println("------------------------------\n");
-    }
-    public void displayDetailedHistory(BookingHistory history) {
-        System.out.println("--- Detailed Booking Logs ---");
-        for (Reservation res : history.getHistory()) {
-            System.out.println("Guest: " + res.getGuestName() +
-                    " | Room: " + res.getRoomId() +
-                    " (" + res.getRoomType() + ")");
-        }
-        System.out.println("------------------------------\n");
     }
 }
 public class UseCaseHotelBookingApp {
     public static void main(String[] args) {
-        BookingHistory history = new BookingHistory();
-        BookingReportService reportService = new BookingReportService();
-        history.addRecord(new Reservation("Abhi", "Single", "Single-1"));
-        history.addRecord(new Reservation("Subha", "Double", "Double-1"));
-        history.addRecord(new Reservation("Vanmathi", "Single", "Single-2"));
-        reportService.displayDetailedHistory(history);
-        reportService.generateSummaryReport(history);
+        System.out.println("System Validation & Error Handling\n");
+        RoomInventory inventory = new RoomInventory();
+        String[][] testCases = {
+                {"Abhi", "Single"},
+                {"lolo", "Single"},
+                {"Subha", "Penthouse"},
+                {"Vanmathi", "Double"},
+                {"Kavin", "Double"}
+        };
+
+        for (String[] test : testCases) {
+            String name = test[0];
+            String type = test[1];
+
+            try {
+                System.out.println("Processing: " + name + " for " + type);
+                BookingValidator.validateGuestName(name);
+                inventory.validateAndDecrement(type);
+                System.out.println("Result: Booking Successful!\n");
+            } catch (BookingException e) {
+                System.err.println("Result: " + e.getMessage() + "\n");
+            }
+        }
+
+        System.out.println("Final Inventory Status:");
+        System.out.println("Single: " + inventory.getCount("Single"));
+        System.out.println("Double: " + inventory.getCount("Double"));
     }
 }
