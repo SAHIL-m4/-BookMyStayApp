@@ -1,63 +1,55 @@
+import java.io.*;
 import java.util.*;
-class RoomInventory {
-    private Map<String, Integer> roomAvailability;
-
+class RoomInventory implements Serializable {
+    private static final long serialVersionUID = 1L;
+    private Map<String, Integer> availability;
     public RoomInventory() {
-        roomAvailability = new HashMap<>();
-        roomAvailability.put("Single", 2);
+        availability = new HashMap<>();
+        availability.put("Single", 5);
+        availability.put("Double", 3);
     }
-    public synchronized boolean checkAndDecrement(String roomType) {
-        int available = roomAvailability.getOrDefault(roomType, 0);
-        if (available > 0) {
-            roomAvailability.put(roomType, available - 1);
-            return true;
-        }
-        return false;
+    public void updateCount(String type, int count) {
+        availability.put(type, count);
     }
-    public int getCount(String roomType) {
-        return roomAvailability.getOrDefault(roomType, 0);
+    public void display() {
+        System.out.println("Current Inventory: " + availability);
     }
 }
-class BookingProcessor implements Runnable {
-    private String guestName;
-    private String roomType;
-    private RoomInventory inventory;
-    public BookingProcessor(String guestName, String roomType, RoomInventory inventory) {
-        this.guestName = guestName;
-        this.roomType = roomType;
-        this.inventory = inventory;
+class PersistenceService {
+    private static final String FILE_NAME = "hotel_state.dat";
+    public void saveData(RoomInventory inventory) {
+        try (ObjectOutputStream oos = new ObjectOutputStream(new FileOutputStream(FILE_NAME))) {
+            oos.writeObject(inventory);
+            System.out.println("System state persisted successfully.");
+        } catch (IOException e) {
+            System.err.println("Failed to save state: " + e.getMessage());
+        }
     }
-    @Override
-    public void run() {
-        System.out.println(guestName + " is attempting to book a " + roomType + " room...");
-
-        if (inventory.checkAndDecrement(roomType)) {
-            System.out.println("SUCCESS: Room allocated for " + guestName);
-        } else {
-            System.out.println("FAILURE: No rooms left for " + guestName);
+    public RoomInventory loadData() {
+        File file = new File(FILE_NAME);
+        if (!file.exists()) {
+            System.out.println("No saved state found. Starting fresh.");
+            return new RoomInventory();
+        }
+        try (ObjectInputStream ois = new ObjectInputStream(new FileInputStream(FILE_NAME))) {
+            return (RoomInventory) ois.readObject();
+        } catch (IOException | ClassNotFoundException e) {
+            System.err.println("Recovery failed: " + e.getMessage());
+            return new RoomInventory();
         }
     }
 }
 public class UseCaseHotelBookingApp {
     public static void main(String[] args) {
-        System.out.println("Concurrent Booking Simulation\n");
-        RoomInventory sharedInventory = new RoomInventory();
-        Thread t1 = new Thread(new BookingProcessor("Alice", "Single", sharedInventory));
-        Thread t2 = new Thread(new BookingProcessor("Bob", "Single", sharedInventory));
-        Thread t3 = new Thread(new BookingProcessor("Charlie", "Single", sharedInventory));
-        Thread t4 = new Thread(new BookingProcessor("Diana", "Single", sharedInventory));
-        t1.start();
-        t2.start();
-        t3.start();
-        t4.start();
-        try {
-            t1.join();
-            t2.join();
-            t3.join();
-            t4.join();
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        }
-        System.out.println("\nFinal Inventory Status for Single: " + sharedInventory.getCount("Single"));
+        PersistenceService persistence = new PersistenceService();
+        System.out.println("--- System Restarting ---");
+        RoomInventory inventory = persistence.loadData();
+        inventory.display();
+        System.out.println("\n--- Processing Booking ---");
+        inventory.updateCount("Single", 4);
+        inventory.display();
+        System.out.println("\n--- System Shutting Down ---");
+        persistence.saveData(inventory);
+        System.out.println("\nNote: Run the program again to see the recovered state.");
     }
 }
