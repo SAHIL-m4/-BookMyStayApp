@@ -8,7 +8,7 @@ class Reservation {
         this.guestName = guestName;
         this.roomType = roomType;
         this.roomId = roomId;
-    } git add
+    } 
     public String getGuestName() { return guestName; }
     public String getRoomType() { return roomType; }
     public String getRoomId() { return roomId; }
